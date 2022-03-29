@@ -402,6 +402,10 @@ struct DiagnosticMetadata<'ast> {
     current_where_predicate: Option<&'ast WherePredicate>,
 
     current_type_path: Option<&'ast Ty>,
+
+    currently_processing_impl_trait: bool,
+
+    current_impl_trait: Option<(&'ast [Segment], Span)>,
 }
 
 struct LateResolutionVisitor<'a, 'b, 'ast> {
@@ -1232,6 +1236,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         opt_trait_ref: Option<&TraitRef>,
         f: impl FnOnce(&mut Self, Option<DefId>) -> T,
     ) -> T {
+        self.diagnostic_metadata.currently_processing_impl_trait = true;
         let mut new_val = None;
         let mut new_id = None;
         if let Some(trait_ref) = opt_trait_ref {
@@ -1242,6 +1247,19 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
                 PathSource::Trait(AliasPossibility::No),
                 Finalize::SimplePath(trait_ref.ref_id, trait_ref.path.span),
             );
+            // let partial_res = self.resolve_qpath_anywhere(
+            //     None,
+            //     &path,
+            //     PathSource::Trait(AliasPossibility::No).namespace(),
+            //     trait_ref.path.span,
+            //     PathSource::Trait(AliasPossibility::No).defer_to_typeck(),
+            //     Finalize::SimplePath(trait_ref.ref_id, trait_ref.path.span),
+            // );
+            // if let Ok(Some(res)) = partial_res {
+            //     if let Res::Def(DefKind::Struct, _def_id) = res.base_res() {
+            //         println!("is structtttttttttttttttt");
+            //     }
+            // }
             if let Some(def_id) = res.base_res().opt_def_id() {
                 new_id = Some(def_id);
                 new_val = Some((self.r.expect_module(def_id), trait_ref.clone()));
@@ -1250,6 +1268,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         let original_trait_ref = replace(&mut self.current_trait_ref, new_val);
         let result = f(self, new_id);
         self.current_trait_ref = original_trait_ref;
+        self.diagnostic_metadata.currently_processing_impl_trait = false;
         result
     }
 
@@ -2013,6 +2032,13 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
             finalize,
         ) {
             Ok(Some(partial_res)) if partial_res.unresolved_segments() == 0 => {
+                if self.diagnostic_metadata.currently_processing_impl_trait {
+                    if let Res::Def(DefKind::Struct, def_id) = partial_res.base_res() {
+                        if let Some(_span) = self.r.opt_span(def_id) {
+                            // self.diagnostic_metadata.current_impl_trait = Some((path, span));
+                        }
+                    }
+                }
                 if source.is_expected(partial_res.base_res()) || partial_res.base_res() == Res::Err
                 {
                     partial_res
@@ -2052,6 +2078,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
             }
 
             Err(err) => {
+                debug!("(resolving path in lexical scope) failed to resolve fafhoawehf");
                 if let Some(err) = report_errors_for_call(self, err) {
                     self.report_error(err.span, err.node);
                 }

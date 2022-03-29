@@ -209,6 +209,20 @@ impl<'a: 'ast, 'ast> LateResolutionVisitor<'a, '_, 'ast> {
         let code = source.error_code(res.is_some());
         let mut err = self.r.session.struct_span_err_with_code(base_span, &base_msg, code);
 
+        if self.diagnostic_metadata.currently_processing_impl_trait {
+            if let Some(self_ty) = &self.diagnostic_metadata.current_self_type && let Some((impl_trait_path, impl_trait_span)) = self.diagnostic_metadata.current_impl_trait {
+                if let TyKind::Path(_, self_ty) = &self_ty.kind {
+                    err.multipart_suggestion(
+                        "struct trait",
+                        vec![
+                            (self_ty.span, Segment::names_to_string(impl_trait_path)),
+                            (impl_trait_span, path_names_to_string(self_ty)),
+                        ],
+                        Applicability::MaybeIncorrect,
+                    );
+                }
+            }
+        }
         if let Some(span) = self.diagnostic_metadata.current_block_could_be_bare_struct_literal {
             err.multipart_suggestion(
                 "you might have meant to write a `struct` literal",
