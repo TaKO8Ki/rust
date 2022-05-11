@@ -71,7 +71,7 @@ pub trait AstConv<'tcx> {
 
     /// Returns the lifetime to use when a lifetime is omitted (and not elided).
     fn re_infer(&self, param: Option<&ty::GenericParamDef>, span: Span)
-    -> Option<ty::Region<'tcx>>;
+        -> Option<ty::Region<'tcx>>;
 
     /// Returns the type to use when a type is omitted.
     fn ty_infer(&self, param: Option<&ty::GenericParamDef>, span: Span) -> Ty<'tcx>;
@@ -2248,7 +2248,11 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                     path_segs.iter().map(|PathSeg(_, index)| index).collect();
                 self.prohibit_generics(path.segments.iter().enumerate().filter_map(
                     |(index, seg)| {
-                        if !generic_segs.contains(&index) { Some(seg) } else { None }
+                        if !generic_segs.contains(&index) {
+                            Some(seg)
+                        } else {
+                            None
+                        }
                     },
                 ));
 
@@ -2621,10 +2625,14 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
             );
 
             if !infer_replacements.is_empty() {
-                diag.multipart_suggestion(&format!(
+                diag.multipart_suggestion(
+                    &format!(
                     "try replacing `_` with the type{} in the corresponding trait method signature",
                     rustc_errors::pluralize!(infer_replacements.len()),
-                ), infer_replacements, Applicability::MachineApplicable);
+                ),
+                    infer_replacements,
+                    Applicability::MachineApplicable,
+                );
             }
 
             diag.emit();
@@ -2798,9 +2806,28 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
             if self_ty.span.edition() >= Edition::Edition2021 {
                 let msg = "trait objects must include the `dyn` keyword";
                 let label = "add `dyn` keyword before this trait";
-                rustc_errors::struct_span_err!(tcx.sess, self_ty.span, E0782, "{}", msg)
-                    .multipart_suggestion_verbose(label, sugg, Applicability::MachineApplicable)
-                    .emit();
+                let mut err =
+                    rustc_errors::struct_span_err!(tcx.sess, self_ty.span, E0782, "{}", msg);
+                err.multipart_suggestion_verbose(label, sugg, Applicability::MachineApplicable);
+                if let Some(parent_hir_id) = tcx.hir().find_parent_node(self_ty.hir_id) {
+                    if let Some(parent_node) = tcx.hir().find(parent_hir_id) {
+                        debug!(?parent_node);
+                        if let hir::Node::Item(hir::Item {
+                            kind: hir::ItemKind::Impl(hir::Impl { of_trait: Some(trait_ref), .. }),
+                            span,
+                            ..
+                        }) = parent_node
+                        {
+                            err.span_suggestion_verbose(
+                                span.to(trait_ref.path.span),
+                                "aaaaaaaa",
+                                format!("impl<T: {}> Iterator for T", self_ty),
+                                Applicability::MaybeIncorrect,
+                            );
+                        }
+                    }
+                }
+                err.emit();
             } else {
                 let msg = "trait objects without an explicit `dyn` are deprecated";
                 tcx.struct_span_lint_hir(
