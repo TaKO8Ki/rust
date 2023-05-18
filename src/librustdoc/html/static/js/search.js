@@ -1996,7 +1996,7 @@ function initSearch(rawSearchIndex) {
                 const name = item.name;
                 const type = itemTypes[item.ty];
                 const longType = longItemTypes[item.ty];
-                let extra = longType.length !== 0 ? ` <i>(${longType})</i>` : "";
+                const typeName = longType.length !== 0 ? `${longType}` : "?";
 
                 length += 1;
 
@@ -2008,7 +2008,6 @@ function initSearch(rawSearchIndex) {
                 resultName.className = "result-name";
 
                 if (item.is_alias) {
-                    extra = "";
                     const alias = document.createElement("span");
                     alias.className = "alias";
 
@@ -2022,9 +2021,15 @@ function initSearch(rawSearchIndex) {
 
                     resultName.appendChild(alias);
                 }
+
+                const typeDisplay = document.createElement("div");
+                typeDisplay.innerText = typeName;
+                typeDisplay.className = "type-kind";
+                link.appendChild(typeDisplay);
+
                 resultName.insertAdjacentHTML(
                     "beforeend",
-                    item.displayPath + "<span class=\"" + type + "\">" + name + "</span>" + extra);
+                    item.displayPath + "<span class=\"" + type + "\">" + name + "</span>");
                 link.appendChild(resultName);
 
                 const description = document.createElement("div");
