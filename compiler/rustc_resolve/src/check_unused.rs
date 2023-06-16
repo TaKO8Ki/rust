@@ -403,7 +403,7 @@ impl Resolver<'_, '_> {
                             || module.ends_with("_test")
                             || module.ends_with("_tests") =>
                     {
-                        Some(parent_module.span)
+                        Some(visitor.r.tcx.def_span(parent_module.def_id()))
                     }
                     _ => None,
                 }

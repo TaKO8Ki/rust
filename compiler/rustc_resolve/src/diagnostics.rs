@@ -2588,9 +2588,8 @@ fn show_candidates(
                 if let DiagnosticMode::Pattern = mode { ", which" } else { "" }
             );
 
-            if let Some(local_def_id) = def_id.and_then(|did| did.as_local()) {
-                let span = tcx.source_span(local_def_id);
-                let span = tcx.sess.source_map().guess_head_span(span);
+            if let Some(def_id) = def_id {
+                let span = tcx.def_span(def_id);
                 let mut multi_span = MultiSpan::from_span(span);
                 multi_span.push_span_label(span, "not accessible");
                 err.span_note(multi_span, msg);
