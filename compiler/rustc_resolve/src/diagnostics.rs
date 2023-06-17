@@ -1393,9 +1393,8 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         if ident.name == kw::Default
             && let ModuleKind::Def(DefKind::Enum, def_id, _) = parent_scope.module.kind
         {
-            let span = self.def_span(def_id);
             let source_map = self.tcx.sess.source_map();
-            let head_span = source_map.guess_head_span(span);
+            let head_span = self.tcx.def_span(def_id);
             if let Ok(head) = source_map.span_to_snippet(head_span) {
                 err.span_suggestion(head_span, "consider adding a derive", format!("#[derive(Default)]\n{head}"), Applicability::MaybeIncorrect);
             } else {
@@ -1469,7 +1468,8 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
             Some(suggestion) if suggestion.candidate == kw::Underscore => return false,
             Some(suggestion) => suggestion,
         };
-        if let Some(def_span) = suggestion.res.opt_def_id().map(|def_id| self.def_span(def_id)) {
+        if let Some(def_span) = suggestion.res.opt_def_id().map(|def_id| self.tcx.def_span(def_id))
+        {
             if span.overlaps(def_span) {
                 // Don't suggest typo suggestion for itself like in the following:
                 // error[E0423]: expected function, tuple struct or tuple variant, found struct `X`
@@ -1497,7 +1497,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
             };
 
             err.span_label(
-                self.tcx.sess.source_map().guess_head_span(def_span),
+                def_span,
                 format!(
                     "{}{} `{}` defined here",
                     prefix,
@@ -2619,8 +2619,7 @@ fn show_candidates(
             let mut spans = Vec::new();
             for (name, _, def_id, _) in &inaccessible_path_strings {
                 if let Some(local_def_id) = def_id.and_then(|did| did.as_local()) {
-                    let span = tcx.source_span(local_def_id);
-                    let span = tcx.sess.source_map().guess_head_span(span);
+                    let span = tcx.def_span(local_def_id);
                     spans.push((name, span));
                 } else {
                     if !has_colon {
