@@ -694,7 +694,7 @@ pub trait LintContext: Sized {
 
                     if let Some(span) = in_test_module {
                         db.span_help(
-                            self.sess().source_map().guess_head_span(span),
+                            span,
                             "consider adding a `#[cfg(test)]` to the containing module",
                         );
                     }
